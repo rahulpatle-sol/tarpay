@@ -1,0 +1,201 @@
+// =============================================================================
+// TarPay — Prisma Schema
+// The entire data model for the TarPay escrow engine.
+// We use PostgreSQL in production (Railway) and SQLite for local dev.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// -----------------------------------------------------------------------------
+// User — both consumers and merchants share this model.
+// isMerchant flag differentiates the two personas at the app layer.
+// -----------------------------------------------------------------------------
+model User {
+  id            String        @id @default(cuid())
+  name          String
+  phone         String        @unique
+  upiId         String        @unique  // e.g. rahul@tarpay
+  passwordHash  String
+  isMerchant    Boolean       @default(false)
+  businessName  String?                // only for merchants
+  balance       Float         @default(10000) // simulated wallet credits (₹10,000 on signup)
+  fraudScore    Int           @default(0)     // increases on suspicious activity
+  isBlocked     Boolean       @default(false) // admin can block accounts
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  sentTransactions     Transaction[] @relation("Sender")
+  receivedTransactions Transaction[] @relation("Receiver")
+  disputes             Dispute[]
+  notifications        Notification[]
+
+  @@index([upiId])
+  @@index([phone])
+}
+
+// -----------------------------------------------------------------------------
+// Transaction — the heart of TarPay.
+// Every payment goes through a state machine managed by the Contract Engine.
+// Money never moves directly — it always sits in escrow first.
+// -----------------------------------------------------------------------------
+model Transaction {
+  id            String          @id @default(cuid())
+  senderId      String
+  receiverId    String
+  amount        Float
+  description   String?
+  status        TransactionStatus @default(INITIATED)
+
+  // Escrow timing — the core safety mechanism
+  holdDuration  Int             @default(86400) // seconds; default = 24 hours
+  heldAt        DateTime?       // when escrow lock was applied
+  releaseAt     DateTime?       // when auto-settle will trigger
+  settledAt     DateTime?       // when money actually moved
+  revertedAt    DateTime?       // when money was returned to sender
+
+  // Validation metadata — logged at initiation time
+  receiverNameAtTime  String?   // snapshot of receiver name when tx was created
+  senderIpAddress     String?
+  deviceFingerprint   String?
+
+  // Fraud flags set by the Contract Engine
+  flaggedReason String?
+  riskScore     Int     @default(0) // 0-100; above 70 = auto-flag
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  sender    User     @relation("Sender",   fields: [senderId],   references: [id])
+  receiver  User     @relation("Receiver", fields: [receiverId], references: [id])
+  escrow    Escrow?
+  dispute   Dispute?
+  logs      TransactionLog[]
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+}
+
+// -----------------------------------------------------------------------------
+// Escrow — the vault record for every held transaction.
+// One escrow per transaction. Managed exclusively by the Contract Engine.
+// -----------------------------------------------------------------------------
+model Escrow {
+  id            String       @id @default(cuid())
+  transactionId String       @unique
+  amount        Float
+  status        EscrowStatus @default(LOCKED)
+  lockedAt      DateTime     @default(now())
+  releaseAt     DateTime     // auto-settle trigger time
+  unlockedAt    DateTime?    // when escrow was released (settled or reverted)
+  unlockedBy    String?      // "AUTO_SETTLE" | "DISPUTE_RESOLVED" | "SENDER_CANCEL"
+
+  transaction   Transaction  @relation(fields: [transactionId], references: [id])
+
+  @@index([status])
+  @@index([releaseAt])
+}
+
+// -----------------------------------------------------------------------------
+// Dispute — raised by the sender within the hold window.
+// The Contract Engine evaluates and resolves disputes automatically when possible.
+// -----------------------------------------------------------------------------
+model Dispute {
+  id            String        @id @default(cuid())
+  transactionId String        @unique
+  raisedById    String
+  reason        DisputeReason
+  description   String?
+  status        DisputeStatus @default(OPEN)
+  resolution    String?       // admin/engine resolution note
+  resolvedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  transaction   Transaction   @relation(fields: [transactionId], references: [id])
+  raisedBy      User          @relation(fields: [raisedById],    references: [id])
+
+  @@index([status])
+}
+
+// -----------------------------------------------------------------------------
+// TransactionLog — immutable audit trail for every state change.
+// Append-only. Never update or delete these records.
+// -----------------------------------------------------------------------------
+model TransactionLog {
+  id            String   @id @default(cuid())
+  transactionId String
+  fromStatus    String
+  toStatus      String
+  triggeredBy   String   // "USER" | "CONTRACT_ENGINE" | "CRON" | "ADMIN"
+  note          String?
+  createdAt     DateTime @default(now())
+
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([transactionId])
+}
+
+// -----------------------------------------------------------------------------
+// Notification — in-app notification queue for users.
+// -----------------------------------------------------------------------------
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+enum TransactionStatus {
+  INITIATED     // tx created, validation pending
+  VALIDATED     // receiver validated, ready to lock
+  ON_HOLD       // funds locked in escrow
+  SETTLED       // funds released to receiver
+  REVERTED      // funds returned to sender
+  DISPUTED      // dispute raised, engine evaluating
+  FLAGGED       // auto-flagged by fraud engine, manual review needed
+  CANCELLED     // sender cancelled before escrow lock
+}
+
+enum EscrowStatus {
+  LOCKED
+  RELEASED
+  REVERTED
+  FROZEN        // dispute or fraud — neither party can access
+}
+
+enum DisputeReason {
+  WRONG_RECIPIENT
+  DUPLICATE_PAYMENT
+  FRAUD_SUSPECTED
+  SERVICE_NOT_RECEIVED
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_REVERT
+  RESOLVED_SETTLE
+  REJECTED
+}

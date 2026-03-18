@@ -1,0 +1,12 @@
+{
+  "name": "tarpay",
+  "version": "1.0.0",
+  "description": "TarPay — DeFi-inspired UPI escrow engine for Bharat",
+  "private": true,
+  "workspaces": ["backend", "contract"],
+  "scripts": {
+    "dev": "npm run dev --workspace=backend",
+    "build": "npm run build --workspace=backend",
+    "test": "npm run test --workspace=backend"
+  }
+}

@@ -1,0 +1,1331 @@
+{
+  "info": {
+    "name": "TarPay API",
+    "description": "TarPay \u2014 Full test suite with assertions",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:4000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "tx_id",
+      "value": ""
+    },
+    {
+      "key": "held_tx_id",
+      "value": ""
+    },
+    {
+      "key": "dispute_tx_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "1. Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Service is TarPay\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.status).to.eql(\"ok\");",
+                  "  pm.expect(r.service).to.include(\"TarPay\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2. Register User (idempotent)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Register returns 201 or 409\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "  pm.test(\"User created with balance\", () => {",
+                  "    const r = pm.response.json();",
+                  "    pm.expect(r.success).to.be.true;",
+                  "    pm.expect(r.user.balance).to.eql(10000);",
+                  "    pm.expect(r.user.upiId).to.eql(\"rahul@tarpay\");",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Rahul Sharma\", \"phone\": \"9876543210\", \"upiId\": \"rahul@tarpay\", \"password\": \"password123\", \"isMerchant\": false}"
+            }
+          }
+        },
+        {
+          "name": "3. Register Merchant (idempotent)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Register merchant returns 201 or 409\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Rajat Samosa Stall\", \"phone\": \"9876543212\", \"upiId\": \"samosa@tarpay\", \"password\": \"password123\", \"isMerchant\": true, \"businessName\": \"Rajat ka Samosa Corner\"}"
+            }
+          }
+        },
+        {
+          "name": "4. Login \u2014 saves token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Returns JWT token\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.token).to.be.a(\"string\").and.not.empty;",
+                  "  pm.expect(r.user.upiId).to.eql(\"rahul@tarpay\");",
+                  "  pm.collectionVariables.set(\"token\", r.token);",
+                  "});",
+                  "pm.test(\"Balance is a number\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.user.balance).to.be.a(\"number\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"upiId\": \"rahul@tarpay\", \"password\": \"password123\"}"
+            }
+          }
+        },
+        {
+          "name": "5. Login \u2014 wrong password (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 401 for wrong password\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error message present\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.false;",
+                  "  pm.expect(r.message).to.include(\"Invalid\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"upiId\": \"rahul@tarpay\", \"password\": \"wrongpassword\"}"
+            }
+          }
+        },
+        {
+          "name": "6. Login \u2014 nonexistent UPI (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 401 for unknown UPI\", () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"upiId\": \"nobody@tarpay\", \"password\": \"password123\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "item": [
+        {
+          "name": "7. Validate \u2014 known UPI",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Receiver info returned\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.receiver.upiId).to.eql(\"samosa@tarpay\");",
+                  "  pm.expect(r.receiver).to.not.have.property(\"passwordHash\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/validate/samosa@tarpay",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "validate",
+                "samosa@tarpay"
+              ]
+            }
+          }
+        },
+        {
+          "name": "8. Validate \u2014 unknown UPI (expect 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 404 for unknown UPI\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Error message present\", () => {",
+                  "  pm.expect(pm.response.json().success).to.be.false;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/validate/ghost@tarpay",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "validate",
+                "ghost@tarpay"
+              ]
+            }
+          }
+        },
+        {
+          "name": "9. Validate \u2014 fraud UPI (warning)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 with fraud warning\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Warning present for high fraud score\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.warning).to.be.a(\"string\").and.include(\"fraud score\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/validate/fraud@tarpay",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "validate",
+                "fraud@tarpay"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10. Send Payment \u2014 Normal (saves tx_id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Transaction created in ON_HOLD\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.transaction.status).to.eql(\"ON_HOLD\");",
+                  "  pm.expect(r.transaction.amount).to.eql(500);",
+                  "  pm.expect(r.isFlagged).to.be.false;",
+                  "  pm.expect(r.releaseAt).to.be.a(\"string\");",
+                  "  pm.collectionVariables.set(\"tx_id\", r.transaction.id);",
+                  "  pm.collectionVariables.set(\"held_tx_id\", r.transaction.id);",
+                  "});",
+                  "pm.test(\"Receiver name snapshot saved\", () => {",
+                  "  pm.expect(pm.response.json().receiverName).to.be.a(\"string\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "send"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"receiverUpiId\": \"samosa@tarpay\", \"amount\": 500, \"description\": \"Samosa 2 plate\"}"
+            }
+          }
+        },
+        {
+          "name": "11. Send Payment \u2014 High Risk (expect FLAGGED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"High risk tx is created flagged or rejected\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201, 400]);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "  pm.test(\"Transaction flagged or has high risk score\", () => {",
+                  "    const r = pm.response.json();",
+                  "    pm.expect(r.riskScore).to.be.above(50);",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "send"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"receiverUpiId\": \"fraud@tarpay\", \"amount\": 75000, \"description\": \"High risk test\"}"
+            }
+          }
+        },
+        {
+          "name": "12. Send Payment \u2014 self (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Cannot pay yourself\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Self-payment error message\", () => {",
+                  "  pm.expect(pm.response.json().message).to.include(\"yourself\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "send"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"receiverUpiId\": \"rahul@tarpay\", \"amount\": 100, \"description\": \"Self pay test\"}"
+            }
+          }
+        },
+        {
+          "name": "13. Send Payment \u2014 zero amount (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Zero amount rejected\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "send"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"receiverUpiId\": \"samosa@tarpay\", \"amount\": 0}"
+            }
+          }
+        },
+        {
+          "name": "14. Get Transaction History",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"History returned with pagination\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.transactions).to.be.an(\"array\");",
+                  "  pm.expect(r.total).to.be.a(\"number\");",
+                  "  pm.expect(r.page).to.eql(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/history?page=1&limit=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "15. Get Transaction Detail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Full detail with escrow + logs\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.transaction.id).to.eql(pm.collectionVariables.get(\"tx_id\"));",
+                  "  pm.expect(r.transaction.escrow).to.be.an(\"object\");",
+                  "  pm.expect(r.transaction.logs).to.be.an(\"array\").with.length.above(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/{{tx_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "{{tx_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Disputes",
+      "item": [
+        {
+          "name": "16. Send fresh payment for dispute test",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Fresh tx created for dispute\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Save dispute_tx_id\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.collectionVariables.set(\"dispute_tx_id\", r.transaction.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "send"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"receiverUpiId\": \"priya@tarpay\", \"amount\": 200, \"description\": \"Dispute test payment\"}"
+            }
+          }
+        },
+        {
+          "name": "17. Raise Dispute",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Dispute raised and escrow frozen\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.message).to.include(\"frozen\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/disputes/raise",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "disputes",
+                "raise"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"transactionId\": \"{{dispute_tx_id}}\", \"reason\": \"WRONG_RECIPIENT\", \"description\": \"Galti se wrong UPI pe bheja\"}"
+            }
+          }
+        },
+        {
+          "name": "18. Raise Dispute again \u2014 same tx (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Cannot raise duplicate dispute\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Duplicate dispute error\", () => {",
+                  "  pm.expect(pm.response.json().message).to.include(\"already exists\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/disputes/raise",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "disputes",
+                "raise"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"transactionId\": \"{{dispute_tx_id}}\", \"reason\": \"OTHER\"}"
+            }
+          }
+        },
+        {
+          "name": "19. My Disputes list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Dispute list returned\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.disputes).to.be.an(\"array\");",
+                  "  pm.expect(r.disputes.length).to.be.above(0);",
+                  "  pm.expect(r.disputes[0].reason).to.be.a(\"string\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/disputes/my",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "disputes",
+                "my"
+              ]
+            }
+          }
+        },
+        {
+          "name": "20. Cancel held tx \u2014 within 1hr",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Cancel succeeds\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Refund amount returned\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.refundedAmount).to.eql(500);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/{{held_tx_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "{{held_tx_id}}",
+                "cancel"
+              ]
+            }
+          }
+        },
+        {
+          "name": "21. Cancel already-cancelled tx (expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Cannot cancel twice\", () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/{{held_tx_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "transactions",
+                "{{held_tx_id}}",
+                "cancel"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "22. My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Profile has no passwordHash\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.user).to.not.have.property(\"passwordHash\");",
+                  "  pm.expect(r.user.upiId).to.eql(\"rahul@tarpay\");",
+                  "});",
+                  "pm.test(\"Balance decreased after payments\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.user.balance).to.be.a(\"number\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "23. Dashboard Stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Stats shape correct\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.stats).to.have.property(\"totalReceived\");",
+                  "  pm.expect(r.stats).to.have.property(\"totalSent\");",
+                  "  pm.expect(r.stats).to.have.property(\"pendingEscrow\");",
+                  "  pm.expect(r.stats).to.have.property(\"openDisputes\");",
+                  "  pm.expect(r.recentTransactions).to.be.an(\"array\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/dashboard",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "dashboard"
+              ]
+            }
+          }
+        },
+        {
+          "name": "24. Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Notifications array returned\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.expect(r.success).to.be.true;",
+                  "  pm.expect(r.notifications).to.be.an(\"array\");",
+                  "  if (r.notifications.length > 0) {",
+                  "    pm.expect(r.notifications[0]).to.have.property(\"title\");",
+                  "    pm.expect(r.notifications[0]).to.have.property(\"body\");",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/users/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "notifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "25. Protected route without token (expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Rejects request without token\", () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "me"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "26. Admin Login (isAdmin token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Admin token saved\", () => {",
+                  "  const r = pm.response.json();",
+                  "  pm.collectionVariables.set(\"token\", r.token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"upiId\": \"rahul@tarpay\", \"password\": \"password123\"}"
+            }
+          }
+        },
+        {
+          "name": "27. Get All Open Disputes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 or 403\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 403]);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Disputes array returned\", () => {",
+                  "    pm.expect(pm.response.json().disputes).to.be.an(\"array\");",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/disputes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "disputes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "28. Get Flagged Transactions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 or 403\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 403]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/flagged",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "flagged"
+              ]
+            }
+          }
+        },
+        {
+          "name": "29. Resolve Dispute \u2014 REVERT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Resolve returns 200 or 403/400\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 400, 403]);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Resolution is REVERTED\", () => {",
+                  "    pm.expect(pm.response.json().resolution).to.eql(\"REVERTED\");",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/disputes/{{dispute_tx_id}}/resolve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "disputes",
+                "{{dispute_tx_id}}",
+                "resolve"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"resolution\": \"REVERT\"}"
+            }
+          }
+        },
+        {
+          "name": "30. Trigger Auto-Settle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 or 403\", () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 403]);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"Settled count returned\", () => {",
+                  "    pm.expect(pm.response.json()).to.have.property(\"settled\");",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/settle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "settle"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

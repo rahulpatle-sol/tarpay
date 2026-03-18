@@ -1,0 +1,28 @@
+{
+  "name": "tarpay-backend",
+  "version": "1.0.0",
+  "description": "TarPay Backend — Express + Prisma + Contract Engine",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "migrate": "prisma migrate dev",
+    "generate": "prisma generate",
+    "seed": "node src/utils/seed.js",
+    "test": "node tests/run.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "node-cron": "^3.0.3",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3",
+    "prisma": "^5.10.0"
+  }
+}
