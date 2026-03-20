@@ -4,12 +4,13 @@
   "description": "TarPay Backend — Express + Prisma + Contract Engine",
   "main": "src/index.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js",
-    "migrate": "prisma migrate dev",
+    "dev":      "nodemon src/index.js",
+    "start":    "node src/index.js",
+    "build":    "npx prisma generate",
+    "migrate":  "prisma migrate dev",
     "generate": "prisma generate",
-    "seed": "node src/utils/seed.js",
-    "test": "node tests/run.js"
+    "seed":     "node src/utils/seed.js",
+    "test":     "node tests/run.js"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
