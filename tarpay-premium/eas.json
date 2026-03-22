@@ -15,16 +15,10 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "NODE_OPTIONS": "--legacy-peer-deps"
       }
     },
     "production": {
-      "autoIncrement": true,
-      "env": {
-        "NODE_OPTIONS": "--legacy-peer-deps"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
