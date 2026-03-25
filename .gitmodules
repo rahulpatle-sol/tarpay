@@ -1,0 +1,3 @@
+[submodule "tarpay-apk"]
+	path = tarpay-apk
+	url = https://github.com/rahulpatle-sol/tarpay-apk.git
