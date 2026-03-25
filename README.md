@@ -92,9 +92,9 @@ cp .env.example .env
 # EXPO_PUBLIC_API_URL=http://YOUR_LAN_IP:4000
 
 npx expo start --clear
-# Scan QR with Expo Go (SDK 54)
-```
+# Scan QR with Expo Go (SDK 51)
 
+```Expo GO  version  51 sdk  link  ,install  and scan  it 
 ---
 
 ## Demo Accounts
